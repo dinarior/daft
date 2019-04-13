@@ -398,7 +398,7 @@ class Node(object):
 
             return x0, y0
 
-        elif self.shape == 'rectangle' or elf.shape == 'round_rectangle':
+        elif self.shape == 'rectangle' or self.shape == 'round_rectangle':
             
             dx, dy = x2 - x1, y2 - y1
 
