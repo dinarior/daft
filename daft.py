@@ -334,6 +334,14 @@ class Node(object):
             xy[1] = xy[1] - diameter /2.
 
             el = Rectangle(xy=xy, width=wi, height=diameter, **p)
+        elif self.shape == "round_rectangle":
+                # Adapt to make Rectangle the same api than ellipse
+                wi = w
+                xy = ctx.convert(self.x, self.y) 
+                xy[0] = xy[0] - wi / 2.
+                xy[1] = xy[1] - h /2.
+
+                bg = FancyBboxPatch(xy=xy, width=wi, height=h, **p)
         else:
             # Should never append
             raise(ValueError("Wrong shape in object causes an error in render"))
@@ -390,7 +398,7 @@ class Node(object):
 
             return x0, y0
 
-        elif self.shape == 'rectangle':
+        elif self.shape == 'rectangle' or elf.shape == 'round_rectangle':
             
             dx, dy = x2 - x1, y2 - y1
 
