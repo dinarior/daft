@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from matplotlib.patches import FancyArrow
 from matplotlib.patches import Rectangle as Rectangle
+from matplotlib.patches import FancyBboxPatch as FancyBboxPatch
 
 import numpy as np
 
@@ -215,7 +216,7 @@ class Node(object):
             self.label_params = None
 
         # Shape
-        if shape in ["ellipse", "rectangle"]:
+        if shape in ["ellipse", "rectangle", "round_rectangle"]:
             self.shape = shape
         else:
             print("Warning: wrong shape value, set to ellipse instead")
@@ -301,6 +302,14 @@ class Node(object):
                 xy[1] = xy[1] - h /2.
 
                 bg = Rectangle(xy=xy, width=wi, height=h, **p)
+            elif self.shape == "round_rectangle":
+                # Adapt to make Rectangle the same api than ellipse
+                wi = w
+                xy = ctx.convert(self.x, self.y) 
+                xy[0] = xy[0] - wi / 2.
+                xy[1] = xy[1] - h /2.
+
+                bg = FancyBboxPatch(xy=xy, width=wi, height=h, **p)
             else:
                 # Should never append
                 raise(ValueError("Wrong shape in object causes an error in render"))
