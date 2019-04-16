@@ -8,8 +8,14 @@ __version__ = "0.0.4"
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from matplotlib.patches import FancyArrow
+from matplotlib.patches import FancyArrowPatch, ArrowStyle
 from matplotlib.patches import Rectangle as Rectangle
 from matplotlib.patches import FancyBboxPatch as FancyBboxPatch
+from scipy.interpolate import CubicSpline
+
+from sympy.solvers import solve
+from sympy import Symbol
+
 
 import numpy as np
 
@@ -81,7 +87,7 @@ class PGM(object):
         return node
 
     def add_edge(self, name1, name2, directed=None, 
-                 xoffset=0, yoffset=0, **kwargs):
+                 xoffset=0, yoffset=0,curved = None, cur_amount = 0, **kwargs):
         """
         Construct an :class:`Edge` between two named :class:`Node` objects.
 
@@ -100,7 +106,7 @@ class PGM(object):
             directed = self._ctx.directed
 
         e = Edge(self._nodes[name1], self._nodes[name2], directed=directed,
-                 xoffset=xoffset, yoffset=yoffset, plot_params=kwargs)
+                 xoffset=xoffset, yoffset=yoffset,curved = curved, cur_amount = cur_amount, plot_params=kwargs)
         self._edges.append(e)
 
         return e
@@ -335,13 +341,14 @@ class Node(object):
 
             el = Rectangle(xy=xy, width=wi, height=diameter, **p)
         elif self.shape == "round_rectangle":
-                # Adapt to make Rectangle the same api than ellipse
-                wi = w
-                xy = ctx.convert(self.x, self.y) 
-                xy[0] = xy[0] - wi / 2.
-                xy[1] = xy[1] - h /2.
+            # Adapt to make Rectangle the same api than ellipse
+            wi = diameter * aspect *0.4
+            diameter = diameter * 0.4
+            xy = ctx.convert(self.x, self.y) 
+            xy[0] = xy[0] - wi / 2.
+            xy[1] = xy[1] - diameter /2.
 
-                bg = FancyBboxPatch(xy=xy, width=wi, height=h, **p)
+            el = FancyBboxPatch(xy=xy, width=wi, height=diameter, **p)
         else:
             # Should never append
             raise(ValueError("Wrong shape in object causes an error in render"))
@@ -449,13 +456,15 @@ class Edge(object):
 
     """
     def __init__(self, node1, node2, directed=True,
-                 xoffset=0, yoffset=0, plot_params={}):
+                 xoffset=0, yoffset=0, plot_params={}, curved = None, cur_amount = 0):
         self.node1 = node1
         self.node2 = node2
         self.directed = directed
         self.plot_params = dict(plot_params)
         self.xoffset = xoffset
         self.yoffset = yoffset
+        self.curved = curved
+        self.cur_amount = cur_amount
 
     def _get_coords(self, ctx):
         """
@@ -514,9 +523,14 @@ class Edge(object):
 
             #zero lengh arrow produce error
             if not(args[2] == 0. and args[3] == 0.): 
-                ar = FancyArrow(*self._get_coords(ctx), width=0,
-                    length_includes_head=True, **p)
-
+                if self.curved == None:
+                    ar = FancyArrow(*self._get_coords(ctx), width=0,
+                        length_includes_head=True, **p)
+                else:
+                    x, y, dx, dy = self._get_coords(ctx)
+                    style="Simple,tail_width=0.5,head_width=4,head_length=8"
+                    kw = dict(arrowstyle=style, color="k")
+                    ar = FancyArrowPatch((x,y,),(x + dx,y + dy,), connectionstyle="arc3,rad="+str(self.cur_amount), **kw)
                 # Add the arrow to the axes.
                 ax.add_artist(ar)
                 return ar
@@ -532,7 +546,36 @@ class Edge(object):
             x, y, dx, dy = self._get_coords(ctx)
 
             # Plot the line.
-            line = ax.plot([x, x + dx], [y, y + dy], **p)
+            if self.curved == None:
+                line = ax.plot([x, x + dx], [y, y + dy], **p)
+            else:
+
+                x2 =  x + dx
+                y2 =  y + dy
+                xmid = (x+x2) / 2
+                ymid = (y+y2) / 2
+                b = np.sqrt((x-xmid)**2 + (y-ymid)**2)
+                c = np.cos(self.cur_amount)*b
+                a = c*np.sin(self.cur_amount)
+                xpt = Symbol('xpt')
+                ypt = Symbol('ypt')
+                sol = solve([(xpt-x)**2+(ypt-y)**2-c**2, (xpt-x2)**2+(ypt-y2)**2-a**2])
+                if self.curved == 'left':
+                   sol = sol[0]
+                else:
+                   sol = sol[1]
+                
+                xpt = float(sol[xpt])
+                ypt = float(sol[ypt])
+                
+                xs = [x,xpt,x2]
+                ys = [y,ypt,y2]
+
+  
+                cs = CubicSpline(xs, ys)
+                xlin = np.linspace(x, x2, 100)
+                line = ax.plot(xlin,cs(xlin), **p)
+            
             return line
 
 
